@@ -2,6 +2,7 @@ import random
 import numpy as np
 import time
 from collections import deque
+from agents.groq_integration import analyze_market_sentiment, predict_price_movement, get_trading_recommendation
 
 # Simulação de dados históricos para cada token
 price_history = {}
@@ -16,8 +17,8 @@ OVERBOUGHT_THRESHOLD = 70
 
 def predict_action(token):
     """
-    Predicts the best trading action for a given token using technical analysis
-    and sentiment analysis.
+    Predicts the best trading action for a given token using technical analysis,
+    sentiment analysis, and Groq AI.
 
     Args:
         token (str): The token symbol.
@@ -40,22 +41,26 @@ def predict_action(token):
     sentiment_recommendation = get_sentiment_recommendation(token)
     time_series_recommendation = get_time_series_recommendation(token)
 
-    # Combina as recomendações (pesos: técnica 50%, sentimento 30%, série temporal 20%)
+    # Obtém recomendação do Groq AI
+    groq_recommendation = get_groq_recommendation(token)
+
+    # Combina as recomendações (pesos: Groq 40%, técnica 30%, sentimento 20%, série temporal 10%)
     recommendations = {
         "BUY": 0,
         "SELL": 0,
         "HOLD": 0
     }
 
-    recommendations[technical_recommendation] += 0.5
-    recommendations[sentiment_recommendation] += 0.3
-    recommendations[time_series_recommendation] += 0.2
+    recommendations[technical_recommendation] += 0.3
+    recommendations[sentiment_recommendation] += 0.2
+    recommendations[time_series_recommendation] += 0.1
+    recommendations[groq_recommendation] += 0.4  # Groq AI tem o maior peso
 
     # Escolhe a ação com maior peso
     action = max(recommendations, key=recommendations.get)
 
-    # Adiciona um pouco de aleatoriedade (10% de chance de mudar a recomendação)
-    if random.random() < 0.1:
+    # Adiciona um pouco de aleatoriedade (5% de chance de mudar a recomendação)
+    if random.random() < 0.05:  # Reduzido de 10% para 5% para dar mais peso às análises
         alternative_actions = [a for a in ["BUY", "SELL", "HOLD"] if a != action]
         action = random.choice(alternative_actions)
         print(f"[Prediction] Alterando recomendação aleatoriamente para {action}")
@@ -64,6 +69,7 @@ def predict_action(token):
     print(f"  - Técnica: {technical_recommendation}")
     print(f"  - Sentimento: {sentiment_recommendation}")
     print(f"  - Série Temporal: {time_series_recommendation}")
+    print(f"  - Groq AI: {groq_recommendation}")
     print(f"  - Recomendação final: {action}")
 
     return action
@@ -219,7 +225,7 @@ def calculate_rsi(prices):
 
 def get_sentiment_recommendation(token):
     """
-    Gets a trading recommendation based on sentiment analysis.
+    Gets a trading recommendation based on sentiment analysis using Groq AI.
 
     Args:
         token (str): The token symbol.
@@ -227,18 +233,38 @@ def get_sentiment_recommendation(token):
     Returns:
         str: The recommended action (BUY, SELL, HOLD).
     """
-    sentiment = sentiment_data[token]["sentiment_score"]
+    try:
+        # Generate some simulated news data for the token
+        news_data = [
+            f"{token} market shows increased activity in the last 24 hours",
+            f"Analysts predict positive outlook for {token} in the coming weeks",
+            f"New developments in {token} ecosystem attract investor attention"
+        ]
 
-    if sentiment > 0.3:
-        return "BUY"
-    elif sentiment < -0.3:
-        return "SELL"
-    else:
-        return "HOLD"
+        # Use Groq AI for sentiment analysis
+        result = analyze_market_sentiment(token, news_data)
+
+        print(f"[Prediction] Groq AI sentiment analysis for {token}: {result['sentiment_score']}")
+
+        # Return the recommendation from Groq AI
+        return result["recommendation"]
+    except Exception as e:
+        print(f"[Prediction] Error using Groq AI for sentiment analysis: {str(e)}")
+        print(f"[Prediction] Falling back to simple sentiment analysis")
+
+        # Fallback to simple sentiment analysis if Groq AI fails
+        sentiment = sentiment_data[token]["sentiment_score"]
+
+        if sentiment > 0.3:
+            return "BUY"
+        elif sentiment < -0.3:
+            return "SELL"
+        else:
+            return "HOLD"
 
 def get_time_series_recommendation(token):
     """
-    Gets a trading recommendation based on time series prediction.
+    Gets a trading recommendation based on time series prediction using Groq AI.
 
     Args:
         token (str): The token symbol.
@@ -251,21 +277,83 @@ def get_time_series_recommendation(token):
     if len(prices) < 3:
         return "HOLD"
 
-    # Modelo simples: previsão baseada na tendência recente
-    last_price = prices[-1]
-    prev_price = prices[-2]
+    try:
+        # Use Groq AI for price prediction
+        result = predict_price_movement(token, prices, "short")
 
-    # Calcula a tendência de curto prazo
-    short_trend = (last_price - prev_price) / prev_price
+        print(f"[Prediction] Groq AI price prediction for {token}: {result['prediction_score']}")
 
-    # Simula uma previsão para o próximo preço
-    predicted_movement = short_trend * (1 + random.uniform(-0.5, 0.5))
-    predicted_price = last_price * (1 + predicted_movement)
+        # Return the recommendation from Groq AI
+        return result["recommendation"]
+    except Exception as e:
+        print(f"[Prediction] Error using Groq AI for price prediction: {str(e)}")
+        print(f"[Prediction] Falling back to simple time series prediction")
 
-    # Decisão baseada na previsão
-    if predicted_price > last_price * 1.01:  # Previsão de alta de mais de 1%
-        return "BUY"
-    elif predicted_price < last_price * 0.99:  # Previsão de queda de mais de 1%
-        return "SELL"
-    else:
+        # Fallback to simple time series prediction if Groq AI fails
+        last_price = prices[-1]
+        prev_price = prices[-2]
+
+        # Calcula a tendência de curto prazo
+        short_trend = (last_price - prev_price) / prev_price
+
+        # Simula uma previsão para o próximo preço
+        predicted_movement = short_trend * (1 + random.uniform(-0.5, 0.5))
+        predicted_price = last_price * (1 + predicted_movement)
+
+        # Decisão baseada na previsão
+        if predicted_price > last_price * 1.01:  # Previsão de alta de mais de 1%
+            return "BUY"
+        elif predicted_price < last_price * 0.99:  # Previsão de queda de mais de 1%
+            return "SELL"
+        else:
+            return "HOLD"
+
+def get_groq_recommendation(token):
+    """
+    Gets a comprehensive trading recommendation using Groq AI.
+
+    Args:
+        token (str): The token symbol.
+
+    Returns:
+        str: The recommended action (BUY, SELL, HOLD).
+    """
+    if token not in price_history:
         return "HOLD"
+
+    try:
+        # Prepare market data for Groq AI
+        prices = list(price_history[token])
+
+        # Calculate some basic technical indicators
+        short_ma = np.mean(prices[-SHORT_WINDOW:]) if len(prices) >= SHORT_WINDOW else prices[-1]
+        long_ma = np.mean(prices[-LONG_WINDOW:]) if len(prices) >= LONG_WINDOW else prices[-1]
+        rsi = calculate_rsi(prices)
+
+        # Get sentiment score
+        sentiment_score = sentiment_data[token]["sentiment_score"]
+
+        # Prepare market data
+        market_data = {
+            "token": token,
+            "current_price": prices[-1],
+            "price_history": prices,
+            "technical": {
+                "short_ma": short_ma,
+                "long_ma": long_ma,
+                "rsi": rsi
+            },
+            "sentiment": sentiment_score
+        }
+
+        # Use Groq AI for comprehensive trading recommendation
+        result = get_trading_recommendation(token, market_data)
+
+        print(f"[Prediction] Groq AI trading recommendation for {token}: {result['recommendation']} (confidence: {result['confidence']})")
+
+        # Return the recommendation from Groq AI
+        return result["recommendation"]
+    except Exception as e:
+        print(f"[Prediction] Error using Groq AI for trading recommendation: {str(e)}")
+        print(f"[Prediction] Falling back to other prediction methods")
+        return "HOLD"  # Fallback to neutral recommendation

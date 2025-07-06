@@ -1,3 +1,8 @@
+
+# Apply fix for urllib3.packages.six.moves before any other imports
+import agents.six_fix
+
+# Celery configuration
 broker_url = 'redis://localhost:6380/0'
 result_backend = 'redis://localhost:6380/0'
 accept_content = ['json']
