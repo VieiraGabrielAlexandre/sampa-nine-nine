@@ -11,4 +11,7 @@ import agents.campaign_creator
 import agents.trading_agent
 
 if __name__ == '__main__':
+    # Start the worker with proper arguments
+    import sys
+    sys.argv = ['worker', '--loglevel=info']
     app.start()

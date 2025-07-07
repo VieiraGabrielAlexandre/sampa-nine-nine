@@ -1,4 +1,4 @@
-#!/home/fabriel/PycharmProjects/sampa-nine-nine/.venv/bin/python3
+#!/home/jairomendes/lablabai-hackathon-raise-your-hack-sampa-nine-nine/.venv/bin/python3.11
 # -*- coding: utf-8 -*-
 import re
 import sys
