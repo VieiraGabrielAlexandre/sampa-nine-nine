@@ -1,3 +1,5 @@
+import json
+from datetime import datetime
 import requests
 from bs4 import BeautifulSoup
 import random
@@ -14,48 +16,33 @@ def get_airdrop_campaigns():
     try:
         print("[Scout] Iniciando scraping da página de airdrops da Binance...")
 
-        # Em um ambiente real, faríamos uma requisição HTTP para a página de airdrops
-        # url = "https://www.binance.com/pt-BR/airdrop"
-        # response = requests.get(url)
-        # soup = BeautifulSoup(response.text, 'html.parser')
+        url = "https://www.binance.com/bapi/asset/v1/friendly/asset-service/airdrop/list"
+        response = requests.get(url)
 
-        # Simulando o resultado do scraping
-        simulated_campaigns = [
-            {
-                "token": "BTC",
-                "volume_required": 1000,
-                "reward": 50,
-                "period_days": 7,
-                "url": "https://www.binance.com/pt-BR/airdrop/btc",
-                "viability_score": 8.5
-            },
-            {
-                "token": "ETH",
-                "volume_required": 500,
-                "reward": 20,
-                "period_days": 5,
-                "url": "https://www.binance.com/pt-BR/airdrop/eth",
-                "viability_score": 7.2
-            },
-            {
-                "token": "SOL",
-                "volume_required": 2000,
-                "reward": 100,
-                "period_days": 10,
-                "url": "https://www.binance.com/pt-BR/airdrop/sol",
-                "viability_score": 9.0
-            }
-        ]
-
-        # Simulando o tempo de processamento
-        time.sleep(1)
+        campaigns = []
+        filtered_json = [item for item in response.json()["data"] if item["airdropStatus"] == "ON_GOING"]
+        for item in filtered_json:
+            if item["airdropStatus"] == "ON_GOING":
+                campaigns.append({
+                    "token": item["airdropAsset"],
+                    "start_date": datetime.fromtimestamp(item["airdropPeriodStart"] / 1000).strftime("%Y-%m-%d"),
+                    "end_date": datetime.fromtimestamp(item["airdropPeriodEnd"] / 1000).strftime("%Y-%m-%d"),
+                    "period_days": (item["airdropPeriodEnd"] - item["airdropPeriodStart"]) / (1000 * 60 * 60 * 24), 
+                    "url": item["link"],
+                })
+            else:
+                continue
+                
+        # exibir o json filtrado como json
+        print(json.dumps(campaigns, indent=4))
 
         # Analisando a viabilidade de cada campanha
-        for campaign in simulated_campaigns:
+        for campaign in campaigns:
             analyze_campaign_viability(campaign)
 
-        print(f"[Scout] {len(simulated_campaigns)} campanhas coletadas e analisadas")
-        return simulated_campaigns
+        print(f"[Scout] {len(campaigns)} campanhas coletadas e analisadas")
+
+        return campaigns
 
     except Exception as e:
         print(f"[Scout] Erro ao coletar campanhas: {str(e)}")
